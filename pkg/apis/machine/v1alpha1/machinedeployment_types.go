@@ -113,6 +113,11 @@ type MachineDeploymentStrategy struct {
 	// to be.
 	// +optional
 	RollingUpdate *RollingUpdateMachineDeployment `json:"rollingUpdate,omitempty"`
+
+	// InPlaceUpdate update config params. Present only if MachineDeploymentStrategyType =
+	// InPlaceUpdate.
+	// +optional
+	InPlaceUpdate *InPlaceUpdateMachineDeployment `json:"inPlaceUpdate,omitempty"`
 }
 
 // MachineDeploymentStrategyType are valid strategy types for rolling MachineDeployments
@@ -124,10 +129,26 @@ const (
 
 	// RollingUpdateMachineDeploymentStrategyType means that old MCs will be replaced by new one using rolling update i.e gradually scale down the old MCs and scale up the new one.
 	RollingUpdateMachineDeploymentStrategyType MachineDeploymentStrategyType = "RollingUpdate"
+
+	// InPlaceUpdateMachineDeploymentStrategyType means that old MCs will get updated by using rolling update i.e gradually allow update on the machine.
+	InPlaceUpdateMachineDeploymentStrategyType MachineDeploymentStrategyType = "InPlaceUpdate"
 )
 
 // RollingUpdateMachineDeployment is the spec to control the desired behavior of rolling update.
 type RollingUpdateMachineDeployment struct {
+	UpdateConfiguration `json:",inline"`
+}
+
+// InPlaceUpdateMachineDeployment specifies the spec to control the desired behavior of inplace rolling update.
+type InPlaceUpdateMachineDeployment struct {
+	UpdateConfiguration `json:",inline"`
+
+	// OnLabel if true, the controller will only update the machines that have the label.
+	OnLabel bool `json:"onLabel,omitempty"`
+}
+
+// UpdateConfiguration specifies the udpate configuration for the rolling strategy.
+type UpdateConfiguration struct {
 	// The maximum number of machines that can be unavailable during the update.
 	// Value can be an absolute number (ex: 5) or a percentage of desired machines (ex: 10%).
 	// Absolute number is calculated from percentage by rounding down.

@@ -836,6 +836,58 @@ Kubernetes meta/v1.Time
 </tbody>
 </table>
 <br>
+<h3 id="machine.sapcloud.io/v1alpha1.InPlaceUpdateMachineDeployment">
+<b>InPlaceUpdateMachineDeployment</b>
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#machine.sapcloud.io/v1alpha1.MachineDeploymentStrategy">MachineDeploymentStrategy</a>)
+</p>
+<p>
+<p>InPlaceUpdateMachineDeployment specifies the spec to control the desired behavior of inplace rolling update.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>UpdateConfiguration</code>
+</td>
+<td>
+<em>
+<a href="#machine.sapcloud.io/v1alpha1.UpdateConfiguration">
+UpdateConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>UpdateConfiguration</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>onLabel</code>
+</td>
+<td>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>OnLabel if true, the controller will only update the machines that have the label.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<br>
 <h3 id="machine.sapcloud.io/v1alpha1.LastOperation">
 <b>LastOperation</b>
 </h3>
@@ -1523,6 +1575,23 @@ RollingUpdateMachineDeployment
 <h2>RollingUpdate.</h2>
 <p>TODO: Update this to follow our convention for oneOf, whatever we decide it
 to be.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>inPlaceUpdate</code>
+</td>
+<td>
+<em>
+<a href="#machine.sapcloud.io/v1alpha1.InPlaceUpdateMachineDeployment">
+InPlaceUpdateMachineDeployment
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>InPlaceUpdate update config params. Present only if MachineDeploymentStrategyType =
+InPlaceUpdate.</p>
 </td>
 </tr>
 </tbody>
@@ -2580,6 +2649,46 @@ int64
 </p>
 <p>
 <p>RollingUpdateMachineDeployment is the spec to control the desired behavior of rolling update.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>UpdateConfiguration</code>
+</td>
+<td>
+<em>
+<a href="#machine.sapcloud.io/v1alpha1.UpdateConfiguration">
+UpdateConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>UpdateConfiguration</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+<br>
+<h3 id="machine.sapcloud.io/v1alpha1.UpdateConfiguration">
+<b>UpdateConfiguration</b>
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#machine.sapcloud.io/v1alpha1.InPlaceUpdateMachineDeployment">InPlaceUpdateMachineDeployment</a>, 
+<a href="#machine.sapcloud.io/v1alpha1.RollingUpdateMachineDeployment">RollingUpdateMachineDeployment</a>)
+</p>
+<p>
+<p>UpdateConfiguration specifies the udpate configuration for the rolling strategy.</p>
 </p>
 <table>
 <thead>
