@@ -58,8 +58,10 @@ func (c *Cluster) CreateMachineDeployment(namespace string, replicas int32) erro
 					Strategy: v1alpha1.MachineDeploymentStrategy{
 						Type: v1alpha1.RollingUpdateMachineDeploymentStrategyType,
 						RollingUpdate: &v1alpha1.RollingUpdateMachineDeployment{
-							MaxSurge:       &intstr.IntOrString{IntVal: 2},
-							MaxUnavailable: &intstr.IntOrString{IntVal: 1},
+							UpdateConfiguration: v1alpha1.UpdateConfiguration{
+								MaxSurge:       &intstr.IntOrString{IntVal: 2},
+								MaxUnavailable: &intstr.IntOrString{IntVal: 1},
+							},
 						},
 					},
 					Selector: &metav1.LabelSelector{
