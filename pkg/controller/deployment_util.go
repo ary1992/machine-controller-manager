@@ -757,6 +757,17 @@ func getMachineFromNode(machines []*v1alpha1.Machine, node *v1.Node) (*v1alpha1.
 	return nil, fmt.Errorf("machine not found for node %s", node.Name)
 }
 
+func filterMachinesWithUpdateSuccessfulLabel(machines []*v1alpha1.Machine) []*v1alpha1.Machine {
+	machinesWithUpdateSuccessfulLabel := make([]*v1alpha1.Machine, 0)
+	for _, machine := range machines {
+		if _, ok := machine.Labels[v1alpha1.LabelKeyMachineUpdateSuccessful]; ok {
+			machinesWithUpdateSuccessfulLabel = append(machinesWithUpdateSuccessfulLabel, machine)
+		}
+	}
+
+	return machinesWithUpdateSuccessfulLabel
+}
+
 // IsListFromClient returns an rsListFunc that wraps the given client.
 func IsListFromClient(ctx context.Context, c v1alpha1client.MachineV1alpha1Interface) IsListFunc {
 	return func(namespace string, options metav1.ListOptions) ([]*v1alpha1.MachineSet, error) {
