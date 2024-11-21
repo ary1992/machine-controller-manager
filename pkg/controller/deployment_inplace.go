@@ -7,6 +7,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"github.com/gardener/machine-controller-manager/pkg/controller/autoscaler"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/integer"
 )
 
 // rolloutInPlace implements the logic for rolling  a machine set without replacing it.
@@ -70,6 +72,16 @@ func (dc *controller) rolloutInPlace(ctx context.Context, d *v1alpha1.MachineDep
 		return err
 	}
 	if scaledUp {
+		// Update DeploymentStatus
+		return dc.syncRolloutStatus(ctx, allISs, newIS, d)
+	}
+
+	// prepare old ISs for update
+	machinesSelectedForUpdate, err := dc.reconcileOldMachineSetsInPlace(ctx, allISs, FilterActiveMachineSets(oldISs), newIS, d)
+	if err != nil {
+		return err
+	}
+	if machinesSelectedForUpdate {
 		// Update DeploymentStatus
 		return dc.syncRolloutStatus(ctx, allISs, newIS, d)
 	}
@@ -199,4 +211,141 @@ func (dc *controller) reconcileNewMachineSetInPlace(ctx context.Context, oldISs 
 	klog.V(3).Infof("scale up the new machine set %s by %d", newIS.Name, addedNewReplicasCount)
 	scaled, _, err := dc.scaleMachineSetAndRecordEvent(ctx, newIS, newIS.Spec.Replicas+addedNewReplicasCount, deployment)
 	return scaled, err
+}
+
+// this code will not work for mostly onlabel case beacuae of min available.
+// take a deep look into the MaxUnavailable and for inaPlace.
+// this code is not taking maxSurge into account.
+// TODO: handle the failed to update nodes.
+func (dc *controller) reconcileOldMachineSetsInPlace(ctx context.Context, allISs []*v1alpha1.MachineSet, oldISs []*v1alpha1.MachineSet, newIS *v1alpha1.MachineSet, deployment *v1alpha1.MachineDeployment) (bool, error) {
+	oldMachinesCount := GetReplicaCountForMachineSets(oldISs)
+	if oldMachinesCount == 0 {
+		// Can't scale down further
+		return false, nil
+	}
+
+	allMachinesCount := GetReplicaCountForMachineSets(allISs)
+	klog.V(3).Infof("New machine set %s has %d available machines.", newIS.Name, newIS.Status.AvailableReplicas)
+	maxUnavailable := MaxUnavailable(*deployment)
+
+	minAvailable := (deployment.Spec.Replicas) - maxUnavailable
+	newISUnavailableMachineCount := (newIS.Spec.Replicas) - newIS.Status.AvailableReplicas
+	oldISsMachinesUndergoingUpdate, err := dc.getMachinesUndergoingUpdate(oldISs)
+	if err != nil {
+		return false, err
+	}
+
+	klog.V(3).Infof("allMachinesCount:%d,  minAvailable:%d,  newISUnavailableMachineCount:%d,  oldISsMachineInUpdateProcess:%d", allMachinesCount, minAvailable, newISUnavailableMachineCount, oldISsMachinesUndergoingUpdate)
+
+	maxUpdatePossible := allMachinesCount - minAvailable - newISUnavailableMachineCount - oldISsMachinesUndergoingUpdate
+	if maxUpdatePossible <= 0 {
+		return false, nil
+	}
+
+	// preapre machines from old machine sets to get updated, need to check maxUnavailable to ensure we can select machines for update.
+	machinesSelectedForUpdate, err := dc.selectMachineForUpdate(ctx, allISs, oldISs, deployment)
+	if err != nil {
+		return false, err
+	}
+
+	return machinesSelectedForUpdate > 0, nil
+}
+
+func (dc *controller) selectMachineForUpdate(ctx context.Context, allISs []*v1alpha1.MachineSet, oldISs []*v1alpha1.MachineSet, deployment *v1alpha1.MachineDeployment) (int32, error) {
+	maxUnavailable := MaxUnavailable(*deployment)
+
+	// Check if we can pick machines from old ISes for updating to new IS.
+	minAvailable := (deployment.Spec.Replicas) - maxUnavailable
+	oldISsMachinesUndergoingUpdate, err := dc.getMachinesUndergoingUpdate(oldISs)
+	if err != nil {
+		return int32(0), err
+	}
+
+	// Find the number of available machines.
+	availableMachineCount := GetAvailableReplicaCountForMachineSets(allISs) - oldISsMachinesUndergoingUpdate
+	if availableMachineCount <= minAvailable {
+		// Cannot pick for updating.
+		return 0, nil
+	}
+
+	sort.Sort(MachineSetsByCreationTimestamp(oldISs))
+
+	totalReadyForUpdate := int32(0)
+	totalReadyForUpdateCount := availableMachineCount - minAvailable
+	for _, targetIS := range oldISs {
+		if totalReadyForUpdate >= totalReadyForUpdateCount {
+			// No further updating required.
+			break
+		}
+		if (targetIS.Spec.Replicas) == 0 {
+			// cannot pick this ReplicaSet.
+			continue
+		}
+		// prepare for update
+		readyForUpdateCount := int32(integer.IntMin(int((targetIS.Spec.Replicas)), int(totalReadyForUpdateCount-totalReadyForUpdate)))
+		newReplicasCount := (targetIS.Spec.Replicas) - readyForUpdateCount
+
+		if newReplicasCount > (targetIS.Spec.Replicas) {
+			return 0, fmt.Errorf("when selecting machine from old IS for update, got invalid request %s %d -> %d", targetIS.Name, (targetIS.Spec.Replicas), newReplicasCount)
+		}
+		err := dc.labelMachinesToSelectedForUpdate(ctx, targetIS, newReplicasCount)
+		if err != nil {
+			return totalReadyForUpdate, err
+		}
+
+		totalReadyForUpdate += readyForUpdateCount
+	}
+
+	return totalReadyForUpdate, nil
+}
+
+func (dc *controller) labelMachinesToSelectedForUpdate(ctx context.Context, is *v1alpha1.MachineSet, newScale int32) error {
+	readyForDrain := is.Spec.Replicas - newScale
+
+	machines, err := dc.getMachinesForDrain(is, readyForDrain)
+	if err != nil {
+		return err
+	}
+
+	klog.V(3).Infof("machines selected for drain %v", machines)
+
+	for _, machine := range machines {
+		labels := MergeStringMaps(machine.Labels, map[string]string{v1alpha1.LabelKeyMachineSelectedForUpdate: "true"})
+		addLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{%s}}}`, labelsutil.GetFormatedLabels(labels))
+
+		// based on this label, the machine-controller will cordon and drain the machine. MCM provieders will do this work.
+		klog.V(3).Infof("adding label to machine %s selected-for-update %s", machine.Name, labels)
+		if err := dc.machineControl.PatchMachine(ctx, machine.Namespace, machine.Name, []byte(addLabelPatch)); err != nil {
+			klog.V(3).Infof("error while adding label selected-for-update %s", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (dc *controller) getMachinesUndergoingUpdate(oldISs []*v1alpha1.MachineSet) (int32, error) {
+	machineInUpdateProcess := int32(0)
+	for _, is := range oldISs {
+		// TODO: Need to check if failed to update machine should be dealt in special manner, as of now they will be counted in the not ready replicas.
+		machines, err := dc.machineLister.List(labels.SelectorFromSet(MergeStringMaps(is.Spec.Selector.MatchLabels, map[string]string{v1alpha1.LabelKeyMachineSelectedForUpdate: "true"})))
+		if err != nil {
+			return 0, nil
+		}
+		machineInUpdateProcess += int32(len(machines))
+	}
+
+	return machineInUpdateProcess, nil
+}
+
+func (dc *controller) getMachinesForDrain(is *v1alpha1.MachineSet, readyForDrain int32) ([]*v1alpha1.Machine, error) {
+	machines, err := dc.machineLister.List(labels.SelectorFromSet(is.Spec.Selector.MatchLabels))
+	if err != nil {
+		return nil, err
+	}
+	// Get readyForDrain count of machines from the machine set randomly.
+	if len(machines) > int(readyForDrain) {
+		return machines[:readyForDrain], nil
+	}
+	return machines, nil
 }
