@@ -154,20 +154,12 @@ func (dc *controller) reconcileNewMachineSetInPlace(ctx context.Context, oldISs 
 				`{"metadata":{"ownerReferences":[{"apiVersion":"machine.sapcloud.io/v1alpha1","kind":"%s","name":"%s","uid":"%s","controller":true,"blockOwnerDeletion":true}],"labels":{%s},"uid":"%s"}}`,
 				v1alpha1.SchemeGroupVersion.WithKind("MachineSet"),
 				newIS.GetName(), newIS.GetUID(), labelsutil.GetFormatedLabels(machineNewLabels), machine.UID)
-			err = dc.machineControl.PatchMachine(ctx, machine.Namespace, machine.Name, []byte(addControllerPatch))
 
-			// TODO: add condition in the machine set controller that don't down scale the machine set if the machine is updated successfully.
-			// what if there is no error, can it lead to machine deletion in the new machine set since the set will have more replicas.
-			// the set in the replica field in the machine set.
-			// mostly will have to adapt the logic that during the inplace take care of these stuff.
-			// which can lead to scary situations.
+			err = dc.machineControl.PatchMachine(ctx, machine.Namespace, machine.Name, []byte(addControllerPatch))
 			if err != nil {
-				klog.V(3).Infof("failed to transfer the ownership of machine to new machine set %s", err)
+				klog.V(3).Infof("failed to transfer the ownership of machine %s to new machine set %s", machine.Name, err)
 				// scale up the new machine set to the already added replicas.
 				scaled, _, err2 := dc.scaleMachineSetAndRecordEvent(ctx, newIS, newIS.Spec.Replicas+addedNewReplicasCount, deployment)
-				// if things get errored here can it lead to machine deletion
-				// not sure mostly not since the owner reference is not updated.
-				// and nor it has been scaled up or down.
 				klog.V(3).Infof("scale up after failure failed %s", err2)
 				klog.V(3).Infof("scale up replica count after failure %d", addedNewReplicasCount)
 				if err2 != nil {
