@@ -44,6 +44,15 @@ func (dc *controller) rolloutInPlace(ctx context.Context, d *v1alpha1.MachineDep
 		},
 	)
 
+	if len(oldISs) > 0 && !dc.machineSetsScaledToZero(oldISs) {
+		// Label all the old machine sets to skip the scale up.
+		err := dc.labelMachineSets(ctx, oldISs, map[string]string{v1alpha1.LabelKeyMachineSetSkipUpdate: "true"})
+		if err != nil {
+			klog.Errorf("Failed to add %s on all machine sets. Error: %s", v1alpha1.LabelKeyMachineSetSkipUpdate, err)
+			return err
+		}
+	}
+
 	if dc.autoscalerScaleDownAnnotationDuringRollout {
 		// Add the annotation on the all machinesets if there are any old-machinesets and not scaled-to-zero.
 		// This also helps in annotating the node under new-machineset, incase the reconciliation is failing in next
@@ -188,10 +197,6 @@ func (dc *controller) reconcileNewMachineSetInPlace(ctx context.Context, oldISs 
 			addedNewReplicasCount++   // scale up the new machine set.
 		}
 
-		// TODO: add the logic to down scale the old machiene set.
-		// can we safely do it, can it lead to machine deletion.
-		// but since(maybe) the machine has been shifted to the new machine set, it should be safe to do it.
-		// TODO: add label on machine set before transfering the ownership of the machine so mcs controller know that it should not upscale the old machine set.
 		klog.V(3).Infof("scale down machine set %s, transffered replicas to new machine set %d", is.Name, transfferedMachineCount)
 		_, _, err = dc.scaleMachineSetAndRecordEvent(ctx, is, is.Spec.Replicas-transfferedMachineCount, deployment)
 		if err != nil {
