@@ -30,6 +30,7 @@ import (
 
 	"github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"github.com/gardener/machine-controller-manager/pkg/controller/autoscaler"
+	labelsutil "github.com/gardener/machine-controller-manager/pkg/util/labels"
 	"github.com/gardener/machine-controller-manager/pkg/util/nodeops"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -369,6 +370,25 @@ func (dc *controller) taintNodesBackingMachineSets(ctx context.Context, MachineS
 			break
 		}
 		klog.V(2).Infof("Tainted MachineSet object %q with %s to avoid scheduling of pods", machineSet.Name, taint.Key)
+	}
+
+	return nil
+}
+
+// labelMachineSets label all the machineSets with the given label
+func (dc *controller) labelMachineSets(ctx context.Context, MachineSets []*v1alpha1.MachineSet, labels map[string]string) error {
+	for _, machineSet := range MachineSets {
+
+		if machineSet == nil {
+			continue
+		}
+
+		labels := MergeStringMaps(machineSet.Labels, labels)
+		addLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{%s}}}`, labelsutil.GetFormatedLabels(labels))
+
+		if err := dc.machineSetControl.PatchMachineSet(ctx, machineSet.Namespace, machineSet.Name, []byte(addLabelPatch)); err != nil {
+			return fmt.Errorf("failed to label MachineSet %s: %v", machineSet.Name, err)
+		}
 	}
 
 	return nil
