@@ -35,6 +35,8 @@ func (dc *controller) rolloutInPlace(ctx context.Context, d *v1alpha1.MachineDep
 	}
 	allISs := append(oldISs, newIS)
 
+	klog.V(3).Infof("P1")
+
 	err = dc.taintNodesBackingMachineSets(
 		ctx,
 		oldISs, &v1.Taint{
@@ -52,6 +54,7 @@ func (dc *controller) rolloutInPlace(ctx context.Context, d *v1alpha1.MachineDep
 			return err
 		}
 	}
+	klog.V(3).Infof("P2")
 
 	if dc.autoscalerScaleDownAnnotationDuringRollout {
 		// Add the annotation on the all machinesets if there are any old-machinesets and not scaled-to-zero.
@@ -71,9 +74,13 @@ func (dc *controller) rolloutInPlace(ctx context.Context, d *v1alpha1.MachineDep
 		klog.Warningf("Failed to add %s on all nodes. Error: %s", PreferNoScheduleKey, err)
 	}
 
+	klog.V(3).Infof("P3")
+
 	if err := dc.syncMachineSets(ctx, oldISs, newIS, d); err != nil {
-		return err
+		fmt.Printf("failed to sync machine sets %w", err)
+		return fmt.Errorf("failed to sync machine sets %s", err)
 	}
+	klog.V(3).Infof("P4")
 
 	// In this section, we will attempt to scale up the new machine set. Machines with the `machine.sapcloud.io/update-successful` label
 	// can transfer their ownership to the new machine set.
@@ -89,6 +96,8 @@ func (dc *controller) rolloutInPlace(ctx context.Context, d *v1alpha1.MachineDep
 		return dc.syncRolloutStatus(ctx, allISs, newIS, d)
 	}
 
+	klog.V(3).Infof("P5")
+
 	// prepare old ISs for update
 	machinesSelectedForUpdate, err := dc.reconcileOldMachineSetsInPlace(ctx, allISs, FilterActiveMachineSets(oldISs), newIS, d)
 	if err != nil {
@@ -98,6 +107,8 @@ func (dc *controller) rolloutInPlace(ctx context.Context, d *v1alpha1.MachineDep
 		// Update DeploymentStatus
 		return dc.syncRolloutStatus(ctx, allISs, newIS, d)
 	}
+
+	klog.V(3).Infof("P6")
 
 	if MachineDeploymentComplete(d, &d.Status) {
 		if dc.autoscalerScaleDownAnnotationDuringRollout {
@@ -113,18 +124,24 @@ func (dc *controller) rolloutInPlace(ctx context.Context, d *v1alpha1.MachineDep
 		}
 	}
 
+	klog.V(3).Infof("P7")
+
 	// Sync deployment status
 	return dc.syncRolloutStatus(ctx, allISs, newIS, d)
 }
 
 func (dc *controller) syncMachineSets(ctx context.Context, olsISs []*v1alpha1.MachineSet, newIS *v1alpha1.MachineSet, deployment *v1alpha1.MachineDeployment) error {
+	klog.V(3).Infof("P3a")
 	machines, err := dc.machineLister.List(labels.SelectorFromSet(newIS.Spec.Selector.MatchLabels))
 	if err != nil {
 		return err
 	}
+	klog.V(3).Infof("P3b")
 
 	machinesWithUpdateSuccessfulLabel := filterMachinesWithUpdateSuccessfulLabel(machines)
 	klog.V(3).Infof("machine with update successful label in new machine set %v", len(machinesWithUpdateSuccessfulLabel))
+
+	klog.V(3).Infof("P3c")
 
 	if len(machines) > int(newIS.Spec.Replicas) && len(machinesWithUpdateSuccessfulLabel) > 0 {
 		// scale up the new machine set to the number of machines with the update successful label.
@@ -134,6 +151,7 @@ func (dc *controller) syncMachineSets(ctx context.Context, olsISs []*v1alpha1.Ma
 			return err
 		}
 	}
+	klog.V(3).Infof("P3d")
 
 	// remove all the label from the machines related to the inplace update.
 	for _, machine := range machinesWithUpdateSuccessfulLabel {
@@ -145,33 +163,47 @@ func (dc *controller) syncMachineSets(ctx context.Context, olsISs []*v1alpha1.Ma
 
 		klog.V(3).Infof("removing label from machine %s update-successful %s", machine.Name, labels)
 		if err := dc.machineControl.PatchMachine(ctx, machine.Namespace, machine.Name, []byte(addLabelPatch)); err != nil {
+			fmt.Printf("error while removing label update-successful %s", err)
 			klog.V(3).Infof("error while removing label update-successful %s", err)
 			return err
 		}
 	}
 
+	klog.V(3).Infof("P3e")
+
 	// uncordon the node if the for the machine with the update successful label.
 	for _, machine := range machines {
+		klog.V(3).Infof("P3e1")
 		nodeName, ok := machine.Labels[v1alpha1.NodeLabelKey]
 		if !ok {
+			klog.V(3).Infof("P3e2")
 			return fmt.Errorf("node label not found for machine %s", machine.Name)
 		}
 
+		klog.V(3).Infof("P3e3")
 		node, err := dc.nodeLister.Get(nodeName)
 		if err != nil {
+			klog.V(3).Infof("P3e4")
 			return fmt.Errorf("failed to get node %s", nodeName)
 		}
 
+		klog.V(3).Infof("P3e5")
 		nodeLabels := node.Labels
 		delete(nodeLabels, v1alpha1.LabelKeyMachineUpdateSuccessful)
 		delete(nodeLabels, v1alpha1.LabelKeyMachineIsReadyForUpdate)
+		klog.V(3).Infof("P3e6")
 		node.ObjectMeta.Labels = nodeLabels
+		klog.V(3).Infof("P3e7")
 		node.Spec.Unschedulable = false
 		_, err = dc.targetCoreClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 		if err != nil {
+			klog.V(3).Infof("P3e8")
 			return fmt.Errorf("failed to uncordon the node %s", node.Name)
 		}
+		klog.V(3).Infof("P3e9")
 	}
+
+	klog.V(3).Infof("P3f")
 
 	for _, is := range olsISs {
 		// scale down the old machine set to the number of machines which is having the labelselector of the machine set.
@@ -187,6 +219,8 @@ func (dc *controller) syncMachineSets(ctx context.Context, olsISs []*v1alpha1.Ma
 			}
 		}
 	}
+
+	klog.V(3).Infof("P3g")
 
 	return nil
 }

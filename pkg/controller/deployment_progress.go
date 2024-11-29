@@ -39,7 +39,7 @@ import (
 // we shouldn't try to estimate any progress.
 func (dc *controller) syncRolloutStatus(ctx context.Context, allISs []*v1alpha1.MachineSet, newIS *v1alpha1.MachineSet, d *v1alpha1.MachineDeployment) error {
 	newStatus := calculateDeploymentStatus(allISs, newIS, d)
-
+	klog.V(3).Infof("P8")
 	// If there is only one machine set that is active then that means we are not running
 	// a new rollout and this is a resync where we don't need to estimate any progress.
 	// In such a case, we should simply not estimate any progress for this deployment.
@@ -110,6 +110,8 @@ func (dc *controller) syncRolloutStatus(ctx context.Context, allISs []*v1alpha1.
 		dc.requeueStuckMachineDeployment(d, newStatus)
 		return nil
 	}
+
+	klog.V(3).Infof("P9")
 
 	newDeployment := d
 	newDeployment.Status = newStatus
