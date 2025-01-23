@@ -545,6 +545,7 @@ func (dc *controller) reconcileClusterMachineDeployment(key string) error {
 		}
 
 		// TODO: Implement OnLabel strategy
+		return dc.onLabelInPlace(ctx, d, machineSets, machineMap)
 	}
 	return fmt.Errorf("unexpected deployment strategy type: %s", d.Spec.Strategy.Type)
 }
