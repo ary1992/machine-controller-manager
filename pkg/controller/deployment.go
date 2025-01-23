@@ -551,8 +551,9 @@ func (dc *controller) reconcileClusterMachineDeployment(key string) error {
 		if d.Spec.Strategy.InPlaceUpdate.OrchestrationType == v1alpha1.OrchestrationTypeAuto {
 			return dc.rolloutAutoInPlace(ctx, d, machineSets, machineMap)
 		}
-
-		// TODO: Implement Manual InPlace strategy
+		if d.Spec.Strategy.InPlaceUpdate.OrchestrationType == v1alpha1.OrchestrationTypeManual {
+			return dc.rolloutManualInPlace(ctx, d, machineSets, machineMap)
+		}
 	}
 	return fmt.Errorf("unexpected deployment strategy type: %s", d.Spec.Strategy.Type)
 }
