@@ -6,7 +6,7 @@
 TOOLS_DIR := hack/tools
 include hack/tools.mk
 
-IMAGE_REPOSITORY   := europe-docker.pkg.dev/gardener-project/public/gardener/machine-controller-manager
+IMAGE_REPOSITORY   := shafeeqes/machine-controller-manager
 IMAGE_TAG          := $(shell cat VERSION)
 COVERPROFILE       := test/output/coverprofile.out
 
@@ -114,7 +114,7 @@ build:
 .PHONY: release
 release: build docker-image docker-login docker-push
 
-PLATFORM ?= linux/amd64
+PLATFORM := linux/amd64
 .PHONY: docker-image
 docker-image:
 	@docker buildx build --platform $(PLATFORM)  -t $(IMAGE_REPOSITORY):$(IMAGE_TAG) --load .
