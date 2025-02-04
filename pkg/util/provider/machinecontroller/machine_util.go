@@ -1248,7 +1248,7 @@ func (c *controller) drainNodeForInPlace(ctx context.Context, machine *v1alpha1.
 				klog.Warningf("Drain failed for machine %q , providerID %q ,backing node %q. \nBuf:%v \nErrBuf:%v \nErr-Message:%v", machine.Name, getProviderID(machine), getNodeName(machine), buf, errBuf, err)
 
 				description = fmt.Sprintf("Drain failed due to - %s. Will retry in next sync. %s", err.Error(), machineutils.InitiateDrain)
-				state = v1alpha1.MachineStateFailed
+				state = v1alpha1.MachineStateUpdate
 			}
 		}
 	}
@@ -1259,7 +1259,7 @@ func (c *controller) drainNodeForInPlace(ctx context.Context, machine *v1alpha1.
 		v1alpha1.LastOperation{
 			Description:    description,
 			State:          state,
-			Type:           v1alpha1.MachineOperationDelete,
+			Type:           v1alpha1.MachineOperationUpdate,
 			LastUpdateTime: metav1.Now(),
 		},
 		// Let the clone.Status.CurrentStatus (LastUpdateTime) be as it was before.
