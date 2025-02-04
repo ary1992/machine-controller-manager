@@ -164,6 +164,9 @@ const (
 	// MachineStateFailed means operation failed
 	MachineStateFailed MachineState = "Failed"
 
+	// MachineStateUpdate means operation update
+	MachineStateUpdate MachineState = "Update"
+
 	// MachineStateSuccessful means operation completed successfully
 	MachineStateSuccessful MachineState = "Successful"
 )
