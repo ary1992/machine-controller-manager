@@ -35,6 +35,7 @@ import (
 
 // onLabelInPlace implements the logic for rolling  a machine set without replacing it.
 func (dc *controller) onLabelInPlace(ctx context.Context, d *v1alpha1.MachineDeployment, isList []*v1alpha1.MachineSet, machineMap map[types.UID]*v1alpha1.MachineList) error {
+	klog.V(3).Infof("Inside onLabelInPlace")
 	clusterAutoscalerScaleDownAnnotations := make(map[string]string)
 	clusterAutoscalerScaleDownAnnotations[autoscaler.ClusterAutoscalerScaleDownDisabledAnnotationKey] = autoscaler.ClusterAutoscalerScaleDownDisabledAnnotationValue
 
@@ -43,11 +44,19 @@ func (dc *controller) onLabelInPlace(ctx context.Context, d *v1alpha1.MachineDep
 
 	newIS, oldISs, err := dc.getAllMachineSetsAndSyncRevision(ctx, d, isList, machineMap, true)
 	if err != nil {
+		klog.V(3).Infof("error after getAllMachineSetsAndSyncRevision : %s", err)
 		return err
 	}
 	allISs := append(oldISs, newIS)
 
-	klog.V(3).Infof("P1")
+	klog.V(3).Infof("newISs: %v", newIS.Name)
+	for _, is := range allISs {
+		klog.V(3).Infof("allISs: %v", is.Name)
+	}
+
+	for _, is := range oldISs {
+		klog.V(3).Infof("oldISs: %v", is.Name)
+	}
 
 	// TODO: Do we need to do it for all the nodes or only for the nodes which are undergoing update?
 	err = dc.taintNodesBackingMachineSets(
@@ -117,6 +126,8 @@ func (dc *controller) onLabelInPlace(ctx context.Context, d *v1alpha1.MachineDep
 	if err != nil {
 		klog.Errorf("failed to get and label machines to selected for update %s", err)
 	}
+
+	klog.V(3).Infof("machinesSelectedForUpdate %v", machinesSelectedForUpdate)
 	if machinesSelectedForUpdate {
 		// Update DeploymentStatus
 		return dc.syncRolloutStatus(ctx, allISs, newIS, d)
@@ -149,6 +160,7 @@ func (dc *controller) getAndLabelMachinesSelectedForUpdate(ctx context.Context, 
 	isMachineSelectedForUpdate := false
 
 	for _, is := range iSs {
+		klog.V(3).Infof("MachineSet %s", is.Name)
 		if (is.Spec.Replicas) == 0 {
 			// cannot pick this ReplicaSet.
 			continue
@@ -159,6 +171,8 @@ func (dc *controller) getAndLabelMachinesSelectedForUpdate(ctx context.Context, 
 			return false, err
 		}
 
+		klog.V(3).Infof("Listed Machines %v", machines)
+
 		for _, machine := range machines {
 			if machine.Labels[v1alpha1.NodeLabelKey] != "" {
 				node, err := dc.targetCoreClient.CoreV1().Nodes().Get(ctx, machine.Labels[v1alpha1.NodeLabelKey], metav1.GetOptions{})
@@ -167,10 +181,13 @@ func (dc *controller) getAndLabelMachinesSelectedForUpdate(ctx context.Context, 
 					continue
 				}
 
+				klog.V(3).Infof("Found node %s %v", node.Name, node.Labels)
 				// If the node is not marked for update, do not process the node.
 				if _, ok := node.Labels[v1alpha1.LabelKeyMachineSelectedForUpdate]; !ok {
 					continue
 				}
+
+				klog.V(3).Infof("Found node with label selected-for-update %s", node.Name)
 
 				// Reached Here: Means node is marked for update.
 				// Node is marked for update. Label the corresponding machine with selected-for-update label.

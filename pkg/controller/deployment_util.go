@@ -918,11 +918,14 @@ func FindOldMachineSets(deployment *v1alpha1.MachineDeployment, isList []*v1alph
 	var requiredISs []*v1alpha1.MachineSet
 	var allISs []*v1alpha1.MachineSet
 	newIS := FindNewMachineSet(deployment, isList)
+	klog.V(3).Infof("From FindOldMachineSets newIS : %s", newIS.Name)
 	for _, is := range isList {
 		// Filter out new machine set
 		if newIS != nil && is.UID == newIS.UID {
 			continue
 		}
+
+		klog.V(3).Infof("From FindOldMachineSets allISs : %s", is.Name)
 		allISs = append(allISs, is)
 		if (is.Spec.Replicas) != 0 {
 			requiredISs = append(requiredISs, is)

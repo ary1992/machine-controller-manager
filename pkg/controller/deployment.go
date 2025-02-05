@@ -25,12 +25,13 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/gardener/machine-controller-manager/pkg/util/annotations"
-	"github.com/gardener/machine-controller-manager/pkg/util/provider/machineutils"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/gardener/machine-controller-manager/pkg/util/annotations"
+	"github.com/gardener/machine-controller-manager/pkg/util/provider/machineutils"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/klog/v2"
 
@@ -547,11 +548,14 @@ func (dc *controller) reconcileClusterMachineDeployment(key string) error {
 	case v1alpha1.RollingUpdateMachineDeploymentStrategyType:
 		return dc.rolloutRolling(ctx, d, machineSets, machineMap)
 	case v1alpha1.InPlaceUpdateMachineDeploymentStrategyType:
+		klog.V(3).Infof("Here  DeploymentStrategy is Inplace : %s", d.Spec.Strategy.Type)
 		if d.Spec.Strategy.InPlaceUpdate.OrchestrationType == v1alpha1.OrchestrationTypeAuto {
+			klog.V(3).Infof("Reached OrchestrationType as OrchestrationTypeAuto : %s", d.Spec.Strategy.InPlaceUpdate.OrchestrationType)
 			return dc.rolloutInPlace(ctx, d, machineSets, machineMap)
 		}
 
 		// TODO: Implement OnLabel strategy
+		klog.V(3).Infof("Reached OrchestrationType as OrchestrationTypeManual: %s", d.Spec.Strategy.InPlaceUpdate.OrchestrationType)
 		return dc.onLabelInPlace(ctx, d, machineSets, machineMap)
 	}
 	return fmt.Errorf("unexpected deployment strategy type: %s", d.Spec.Strategy.Type)
