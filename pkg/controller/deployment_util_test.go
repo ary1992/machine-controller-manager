@@ -124,7 +124,7 @@ var _ = Describe("deployment_util", func() {
 						MaxSurge:       ptr.To(intstr.FromInt(1)),
 						MaxUnavailable: ptr.To(intstr.FromInt(2)),
 					},
-					ManualUpdate: true,
+					OrchestrationType: machinev1.OrchestrationTypeManual,
 				},
 			}, 5, 2),
 
@@ -137,7 +137,7 @@ var _ = Describe("deployment_util", func() {
 						MaxSurge:       ptr.To(intstr.FromInt(1)),
 						MaxUnavailable: ptr.To(intstr.FromInt(10)),
 					},
-					ManualUpdate: false,
+					OrchestrationType: machinev1.OrchestrationTypeAuto,
 				},
 			}, 3, 3),
 
@@ -146,7 +146,7 @@ var _ = Describe("deployment_util", func() {
 			machinev1.MachineDeploymentStrategy{
 				Type: machinev1.InPlaceUpdateMachineDeploymentStrategyType,
 				InPlaceUpdate: &machinev1.InPlaceUpdateMachineDeployment{
-					ManualUpdate: true,
+					OrchestrationType: machinev1.OrchestrationTypeManual,
 				},
 			}, 0, 0),
 	)
@@ -214,7 +214,7 @@ var _ = Describe("deployment_util", func() {
 			machinev1.MachineDeploymentStrategy{
 				Type: machinev1.InPlaceUpdateMachineDeploymentStrategyType,
 				InPlaceUpdate: &machinev1.InPlaceUpdateMachineDeployment{
-					ManualUpdate: true,
+					OrchestrationType: machinev1.OrchestrationTypeManual,
 				},
 			}, 5, 4, 2, 0, false,
 		),
@@ -227,7 +227,7 @@ var _ = Describe("deployment_util", func() {
 					UpdateConfiguration: machinev1.UpdateConfiguration{
 						MaxSurge: ptr.To(intstr.FromInt(2)),
 					},
-					ManualUpdate: false,
+					OrchestrationType: machinev1.OrchestrationTypeAuto,
 				},
 			}, 5, 4, 2, 3, false,
 		),
@@ -240,7 +240,7 @@ var _ = Describe("deployment_util", func() {
 					UpdateConfiguration: machinev1.UpdateConfiguration{
 						MaxSurge: ptr.To(intstr.FromInt(1)),
 					},
-					ManualUpdate: false,
+					OrchestrationType: machinev1.OrchestrationTypeAuto,
 				},
 			}, 5, 4, 2, 2, false,
 		),

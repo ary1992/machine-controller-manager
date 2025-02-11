@@ -633,7 +633,7 @@ func MaxUnavailable(deployment v1alpha1.MachineDeployment) int32 {
 		maxSurge = deployment.Spec.Strategy.InPlaceUpdate.MaxSurge
 		maxUnavailable = deployment.Spec.Strategy.InPlaceUpdate.MaxUnavailable
 
-		if deployment.Spec.Strategy.InPlaceUpdate.ManualUpdate {
+		if deployment.Spec.Strategy.InPlaceUpdate.OrchestrationType == v1alpha1.OrchestrationTypeManual {
 			maxSurge = ptr.To(intstrutil.FromInt(0))
 		}
 	}
@@ -1171,7 +1171,7 @@ func NewISNewReplicas(deployment *v1alpha1.MachineDeployment, allISs []*v1alpha1
 	case v1alpha1.RecreateMachineDeploymentStrategyType:
 		return (deployment.Spec.Replicas), nil
 	case v1alpha1.InPlaceUpdateMachineDeploymentStrategyType:
-		if deployment.Spec.Strategy.InPlaceUpdate != nil && deployment.Spec.Strategy.InPlaceUpdate.ManualUpdate {
+		if deployment.Spec.Strategy.InPlaceUpdate != nil && deployment.Spec.Strategy.InPlaceUpdate.OrchestrationType == v1alpha1.OrchestrationTypeManual {
 			// when newIs is created, its replicas should be zero as it will have machines only after the old machines are updated and
 			// moved to the new machine set
 			return int32(0), nil // In case of inplace update with manual update, newIS should not have any replicas
