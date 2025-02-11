@@ -180,6 +180,10 @@ func (dc *controller) syncMachineSets(ctx context.Context, olsISs []*v1alpha1.Ma
 		}
 
 		nodeLabels := node.Labels
+		_, ok = nodeLabels[v1alpha1.LabelKeyMachineUpdateSuccessful]
+		if ok {
+			delete(nodeLabels, v1alpha1.LabelKeyMachineSelectedForUpdate)
+		}
 		delete(nodeLabels, v1alpha1.LabelKeyMachineUpdateSuccessful)
 		delete(nodeLabels, v1alpha1.LabelKeyMachineReadyForUpdate)
 		node.ObjectMeta.Labels = nodeLabels
