@@ -70,6 +70,12 @@ func (dc *controller) rolloutManualInPlace(ctx context.Context, d *v1alpha1.Mach
 		klog.Warningf("Failed to add %s on all nodes. Error: %s", PreferNoScheduleKey, err)
 	}
 
+	// label all the machines and nodes backing the old machine sets as candidate for update
+	err = dc.labelNodesBackingMachineSets(ctx, oldISs, map[string]string{v1alpha1.LabelKeyMachineCandidateForUpdate: "true"})
+	if err != nil {
+		return fmt.Errorf("failed to label nodes backing old machine sets as candidate for update: %v", err)
+	}
+
 	if err := dc.syncMachineSets(ctx, oldISs, newIS, d); err != nil {
 		fmt.Printf("failed to sync machine sets %w", err)
 		return fmt.Errorf("failed to sync machine sets %s", err)
