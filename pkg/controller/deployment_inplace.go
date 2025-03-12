@@ -346,6 +346,11 @@ func (dc *controller) reconcileOldMachineSetsInPlace(ctx context.Context, allMac
 		return true, nil
 	}
 
+	// Manual inplace update
+	if deployment.Spec.Strategy.InPlaceUpdate.OrchestrationType == v1alpha1.OrchestrationTypeManual {
+		return true, nil
+	}
+
 	allMachinesCount := GetReplicaCountForMachineSets(allMachineSets)
 	klog.V(3).Infof("New machine set %s has %d available machines.", newMachineSet.Name, newMachineSet.Status.AvailableReplicas)
 	maxUnavailable := MaxUnavailable(*deployment)
